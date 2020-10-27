@@ -1,6 +1,5 @@
 resources:
-- validation_manifests.yaml
-- service.yaml
+- manifests.yaml
 
 configurations:
 - kustomizeconfig.yaml
