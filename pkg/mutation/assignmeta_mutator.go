@@ -51,8 +51,7 @@ func (m *AssignMetadataMutator) Matches(obj metav1.Object, ns *corev1.Namespace)
 }
 
 func (m *AssignMetadataMutator) Mutate(obj *unstructured.Unstructured) error {
-	// TODO implement
-	return nil
+	return Mutate(m, obj)
 }
 func (m *AssignMetadataMutator) ID() ID {
 	return m.id
