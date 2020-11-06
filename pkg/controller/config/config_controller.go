@@ -25,6 +25,7 @@ import (
 	syncc "github.com/open-policy-agent/gatekeeper/pkg/controller/sync"
 	"github.com/open-policy-agent/gatekeeper/pkg/keys"
 	"github.com/open-policy-agent/gatekeeper/pkg/metrics"
+	"github.com/open-policy-agent/gatekeeper/pkg/mutation"
 	"github.com/open-policy-agent/gatekeeper/pkg/readiness"
 	"github.com/open-policy-agent/gatekeeper/pkg/target"
 	"github.com/open-policy-agent/gatekeeper/pkg/watch"
@@ -92,6 +93,9 @@ func (a *Adder) InjectTracker(t *readiness.Tracker) {
 
 func (a *Adder) InjectProcessExcluder(m *process.Excluder) {
 	a.ProcessExcluder = m
+}
+
+func (a *Adder) InjectMutationCache(mutationCache *mutation.System) {
 }
 
 // newReconciler returns a new reconcile.Reconciler
