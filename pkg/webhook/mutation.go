@@ -55,7 +55,7 @@ func init() {
 // +kubebuilder:rbac:groups=*,resources=*,verbs=get;list;watch;update
 
 // AddMutatingWebhook registers the mutating webhook server with the manager
-func AddMutatingWebhook(mgr manager.Manager, client *opa.Client, processExcluder *process.Excluder) error {
+func AddMutatingWebhook(mgr manager.Manager, client *opa.Client, processExcluder *process.Excluder, mutationCache *mutation.System) error {
 	if !*mutation.MutationEnabled {
 		return nil
 	}
