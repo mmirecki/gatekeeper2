@@ -1,7 +1,6 @@
-package mutation
+package types
 
 import (
-	"github.com/open-policy-agent/gatekeeper/pkg/mutation/path/parser"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -17,14 +16,6 @@ type ID struct {
 	Name      string
 }
 
-// SchemaBinding represent the specific GVKs that a
-// mutation's implicit schema applies to
-type SchemaBinding struct {
-	Groups   []string
-	Kinds    []string
-	Versions []string
-}
-
 // Mutator represent a mutation object.
 type Mutator interface {
 	// Matches tells if the given object is eligible for this mutation.
@@ -38,14 +29,6 @@ type Mutator interface {
 	HasDiff(mutator Mutator) bool
 	// DeepCopy returns a copy of the current object
 	DeepCopy() Mutator
-}
-
-// MutatorWithSchema is a mutator exposing the implied
-// schema of the target object.
-type MutatorWithSchema interface {
-	Mutator
-	SchemaBindings() []SchemaBinding
-	Path() *parser.Path
 }
 
 // MakeID builds an ID object for the given object

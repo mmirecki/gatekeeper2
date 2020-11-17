@@ -6,6 +6,8 @@ import (
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/open-policy-agent/gatekeeper/pkg/mutation/schema"
+	"github.com/open-policy-agent/gatekeeper/pkg/mutation/types"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -14,23 +16,23 @@ import (
 // System keeps the list of mutations and
 // provides an interface to apply mutations.
 type System struct {
-	schemaDB        SchemaDB
-	orderedMutators []Mutator
-	mutatorsMap     map[ID]Mutator
+	schemaDB        schema.DB
+	orderedMutators []types.Mutator
+	mutatorsMap     map[types.ID]types.Mutator
 	sync.RWMutex
 }
 
 // NewSystem initializes an empty mutation system
 func NewSystem() *System {
 	return &System{
-		orderedMutators: make([]Mutator, 0),
-		mutatorsMap:     make(map[ID]Mutator),
+		orderedMutators: make([]types.Mutator, 0),
+		mutatorsMap:     make(map[types.ID]types.Mutator),
 	}
 }
 
 // Upsert updates or insert the given object, and returns
 // an error in case of conflicts
-func (s *System) Upsert(m Mutator) error {
+func (s *System) Upsert(m types.Mutator) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -42,7 +44,7 @@ func (s *System) Upsert(m Mutator) error {
 	toAdd := m.DeepCopy()
 
 	// Checking schema consistency only if the mutator has schema
-	if withSchema, ok := toAdd.(MutatorWithSchema); ok {
+	if withSchema, ok := toAdd.(schema.MutatorWithSchema); ok {
 		err := s.schemaDB.Upsert(withSchema)
 		if err != nil {
 			return errors.Wrapf(err, "Schema upsert failed")
@@ -98,7 +100,7 @@ func (s *System) Mutate(obj *unstructured.Unstructured, ns *corev1.Namespace) er
 }
 
 // Remove removes the mutator from the mutation system
-func (s *System) Remove(m Mutator) error {
+func (s *System) Remove(m types.Mutator) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -106,13 +108,7 @@ func (s *System) Remove(m Mutator) error {
 		return nil
 	}
 
-	err := s.schemaDB.Remove(m.ID())
-	// TODO: get back on this once schemaDB implementation is done
-	// and understand how to recover from a failed remove.
-	// One option is to rebuild the schema from scratch using the cache content.
-	if err != nil {
-		return errors.Wrapf(err, "Schema remove failed")
-	}
+	s.schemaDB.Remove(m.ID())
 
 	i := sort.Search(len(s.orderedMutators), func(i int) bool {
 		res := equal(s.orderedMutators[i], m)
@@ -137,7 +133,7 @@ func (s *System) Remove(m Mutator) error {
 	return nil
 }
 
-func greaterOrEqual(mutator1, mutator2 Mutator) bool {
+func greaterOrEqual(mutator1, mutator2 types.Mutator) bool {
 	if mutator1.ID().Group > mutator2.ID().Group {
 		return true
 	}
@@ -165,7 +161,7 @@ func greaterOrEqual(mutator1, mutator2 Mutator) bool {
 	return true
 }
 
-func equal(mutator1, mutator2 Mutator) bool {
+func equal(mutator1, mutator2 types.Mutator) bool {
 	if mutator1.ID().Group == mutator2.ID().Group &&
 		mutator1.ID().Kind == mutator2.ID().Kind &&
 		mutator1.ID().Namespace == mutator2.ID().Namespace &&
