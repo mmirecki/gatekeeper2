@@ -27,6 +27,7 @@ import (
 	"github.com/open-policy-agent/gatekeeper/pkg/watch"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -41,14 +42,21 @@ var (
 	log = logf.Log.WithName("controller").WithValues(logging.Process, "assignmentmetadata_controller")
 )
 
+var gvkAssignMetadata = schema.GroupVersionKind{
+	Group:   mutationsv1alpha1.GroupVersion.Group,
+	Version: mutationsv1alpha1.GroupVersion.Version,
+	Kind:    "AssignMetadata",
+}
+
 type Adder struct {
 	MutationCache *mutation.System
+	Tracker       *readiness.Tracker
 }
 
 // Add creates a new AssignMetadata Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func (a *Adder) Add(mgr manager.Manager) error {
-	r := newReconciler(mgr, a.MutationCache)
+	r := newReconciler(mgr, a.MutationCache, a.Tracker)
 	return add(mgr, r)
 }
 
@@ -58,15 +66,17 @@ func (a *Adder) InjectWatchManager(w *watch.Manager) {}
 
 func (a *Adder) InjectControllerSwitch(cs *watch.ControllerSwitch) {}
 
-func (a *Adder) InjectTracker(t *readiness.Tracker) {}
+func (a *Adder) InjectTracker(t *readiness.Tracker) {
+	a.Tracker = t
+}
 
 func (a *Adder) InjectMutationCache(mutationCache *mutation.System) {
 	a.MutationCache = mutationCache
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, mutationCache *mutation.System) *AssignMetadataReconciler {
-	r := &AssignMetadataReconciler{system: mutationCache, Client: mgr.GetClient()}
+func newReconciler(mgr manager.Manager, mutationCache *mutation.System, tracker *readiness.Tracker) *AssignMetadataReconciler {
+	r := &AssignMetadataReconciler{system: mutationCache, Client: mgr.GetClient(), tracker: tracker}
 	return r
 }
 
@@ -94,7 +104,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // AssignMetadataReconciler reconciles a AssignMetadata object
 type AssignMetadataReconciler struct {
 	client.Client
-	system *mutation.System
+	system  *mutation.System
+	tracker *readiness.Tracker
 }
 
 // +kubebuilder:rbac:groups=mutations.gatekeeper.sh,resources=*,verbs=get;list;watch;create;update;patch;delete
@@ -129,14 +140,18 @@ func (r *AssignMetadataReconciler) Reconcile(request reconcile.Request) (reconci
 		log.Error(err, "Creating mutator for resource failed", "resource", request.NamespacedName)
 	}
 
+	tracker := r.tracker.For(gvkAssignMetadata)
+
 	if !deleted {
 		if err := r.system.Upsert(mutator); err != nil {
 			log.Error(err, "Insert failed", "resource", request.NamespacedName)
 		}
+		tracker.Observe(assignMetadata)
 	} else {
 		if err := r.system.Remove(mutator); err != nil {
 			log.Error(err, "Remove failed", "resource", request.NamespacedName)
 		}
+		tracker.CancelExpect(assignMetadata)
 	}
 	return ctrl.Result{}, nil
 }
