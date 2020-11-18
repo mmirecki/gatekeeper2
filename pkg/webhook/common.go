@@ -107,6 +107,6 @@ func (h *webhookHandler) tracingLevel(ctx context.Context, req admission.Request
 	return traceEnabled, dump
 }
 
-func (h *webhookHandler) skipExcludedNamespace(namespace string) bool {
-	return h.processExcluder.IsNamespaceExcluded(process.Webhook, namespace)
+func (h *webhookHandler) skipExcludedNamespace(namespace string, excludedProcess process.Process) bool {
+	return h.processExcluder.IsNamespaceExcluded(excludedProcess, namespace)
 }

@@ -147,7 +147,7 @@ func (h *mutationHandler) Handle(ctx context.Context, req admission.Request) adm
 	}()
 
 	// namespace is excluded from webhook using config
-	if h.skipExcludedNamespace(req.AdmissionRequest.Namespace) {
+	if h.skipExcludedNamespace(req.AdmissionRequest.Namespace, process.Mutation) {
 		requestResponse = mutationSkipResponse
 		return admission.ValidationResponse(true, "Namespace is set to be ignored by Gatekeeper config")
 	}
