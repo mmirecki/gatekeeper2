@@ -25,7 +25,9 @@ import (
 	"github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1beta1"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/core/templates"
 	configv1alpha1 "github.com/open-policy-agent/gatekeeper/apis/config/v1alpha1"
+	mutationv1alpha "github.com/open-policy-agent/gatekeeper/apis/mutations/v1alpha1"
 	"github.com/open-policy-agent/gatekeeper/pkg/keys"
+	"github.com/open-policy-agent/gatekeeper/pkg/mutation"
 	"github.com/open-policy-agent/gatekeeper/pkg/syncutil"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -56,10 +58,11 @@ type Tracker struct {
 
 	lister Lister
 
-	templates   *objectTracker
-	config      *objectTracker
-	constraints *trackerMap
-	data        *trackerMap
+	templates      *objectTracker
+	config         *objectTracker
+	assignMetadata *objectTracker
+	constraints    *trackerMap
+	data           *trackerMap
 
 	ready              chan struct{}
 	constraintTrackers *syncutil.SingleRunner
@@ -69,9 +72,11 @@ type Tracker struct {
 // NewTracker creates a new Tracker and initializes the internal trackers
 func NewTracker(lister Lister) *Tracker {
 	return &Tracker{
-		lister:             lister,
-		templates:          newObjTracker(v1beta1.SchemeGroupVersion.WithKind("ConstraintTemplate")),
-		config:             newObjTracker(configv1alpha1.GroupVersion.WithKind("Config")),
+		lister:         lister,
+		templates:      newObjTracker(v1beta1.SchemeGroupVersion.WithKind("ConstraintTemplate")),
+		config:         newObjTracker(configv1alpha1.GroupVersion.WithKind("Config")),
+		assignMetadata: newObjTracker(mutationv1alpha.GroupVersion.WithKind("AssignMetadata")),
+
 		constraints:        newTrackerMap(),
 		data:               newTrackerMap(),
 		ready:              make(chan struct{}),
@@ -95,6 +100,8 @@ func (t *Tracker) For(gvk schema.GroupVersionKind) Expectations {
 		return t.templates
 	case gvk.GroupVersion() == configv1alpha1.GroupVersion && gvk.Kind == "Config":
 		return t.config
+	case gvk.GroupVersion() == mutationv1alpha.GroupVersion && gvk.Kind == "AssignMetadata":
+		return t.assignMetadata
 	}
 
 	// Avoid new constraint trackers after templates have been populated.
@@ -103,7 +110,6 @@ func (t *Tracker) For(gvk schema.GroupVersionKind) Expectations {
 		// Return throw-away tracker instead.
 		return noopExpectations{}
 	}
-
 	return t.constraints.Get(gvk)
 }
 
@@ -144,6 +150,9 @@ func (t *Tracker) Satisfied(ctx context.Context) bool {
 		return true
 	}
 
+	if !t.assignMetadata.Satisfied() {
+		return false
+	}
 	if !t.templates.Satisfied() {
 		return false
 	}
@@ -182,6 +191,9 @@ func (t *Tracker) Run(ctx context.Context) error {
 	t.constraintTrackers = syncutil.RunnerWithContext(gctx)
 	close(t.ready) // The constraintTrackers SingleRunner is ready.
 
+	grp.Go(func() error {
+		return t.trackAssignMetadata(gctx)
+	})
 	grp.Go(func() error {
 		return t.trackConstraintTemplates(gctx)
 	})
@@ -331,6 +343,32 @@ func (t *Tracker) collectInvalidExpectations(ctx context.Context) {
 			continue
 		}
 	}
+}
+
+func (t *Tracker) trackAssignMetadata(ctx context.Context) error {
+	defer func() {
+		t.assignMetadata.ExpectationsDone()
+		log.V(1).Info("AssignMetadata expectations populated")
+
+		_ = t.constraintTrackers.Wait()
+	}()
+
+	if !*mutation.MutationEnabled {
+		return nil
+	}
+
+	assignMetadataList := &mutationv1alpha.AssignMetadataList{}
+	lister := retryLister(t.lister, retryAll)
+	if err := lister.List(ctx, assignMetadataList); err != nil {
+		return fmt.Errorf("Error listing AssignMetadata: %w", err)
+	}
+	log.V(1).Info("setting expectations for AssignMetadata", "AssignMetadata Count", len(assignMetadataList.Items))
+
+	for _, am := range assignMetadataList.Items {
+		log.V(1).Info("expecting AssignMetadata", "name", am.GetName())
+		t.assignMetadata.Expect(&am)
+	}
+	return nil
 }
 
 func (t *Tracker) trackConstraintTemplates(ctx context.Context) error {
