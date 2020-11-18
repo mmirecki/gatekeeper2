@@ -152,7 +152,7 @@ violation[{"msg": "denied!"}] {
 	os.Setenv("POD_NAME", "no-pod")
 	podstatus.DisablePodOwnership()
 	cs := watch.NewSwitch()
-	tracker, err := readiness.SetupTracker(mgr)
+	tracker, err := readiness.SetupTracker(mgr, false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	pod := &corev1.Pod{}
 	pod.Name = "no-pod"
@@ -445,7 +445,7 @@ violation[{"msg": "denied!"}] {
 	g.Expect(createGatekeeperNamespace(mgr.GetConfig())).NotTo(gomega.HaveOccurred())
 
 	// Set up tracker
-	tracker, err := readiness.SetupTracker(mgr)
+	tracker, err := readiness.SetupTracker(mgr, false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// initialize OPA
