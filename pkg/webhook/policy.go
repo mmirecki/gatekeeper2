@@ -157,7 +157,7 @@ func (h *validationHandler) Handle(ctx context.Context, req admission.Request) a
 	}()
 
 	// namespace is excluded from webhook using config
-	if h.skipExcludedNamespace(req.AdmissionRequest.Namespace) {
+	if h.skipExcludedNamespace(req.AdmissionRequest.Namespace, process.Webhook) {
 		requestResponse = allowResponse
 		return admission.ValidationResponse(true, "Namespace is set to be ignored by Gatekeeper config")
 	}
