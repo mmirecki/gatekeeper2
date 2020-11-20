@@ -1,6 +1,7 @@
 package mutation
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -136,4 +137,30 @@ func isMetadataPath(path *parser.Path) bool {
 		return true
 	}
 	return false
+}
+
+// IsValidAssignMetadata returns an error if the given assignmetadata object is not
+// semantically valid
+func IsValidAssignMetadata(assignMeta *mutationsv1alpha1.AssignMetadata) error {
+	path, err := parser.Parse(assignMeta.Spec.Location)
+	if err != nil {
+		return errors.Wrapf(err, "Invalid location format")
+	}
+	if !isMetadataPath(path) {
+		return fmt.Errorf("Invalid location for assignmetadata: %s", assignMeta.Spec.Location)
+	}
+
+	assign := make(map[string]interface{})
+	err = json.Unmarshal([]byte(assignMeta.Spec.Parameters.Assign.Raw), &assign)
+	if err != nil {
+		return errors.Wrapf(err, "Invalid format for parameters.assign")
+	}
+	value, ok := assign["value"]
+	if !ok {
+		return fmt.Errorf("spec.parameters.assign must have a string value field")
+	}
+	if _, ok := value.(string); !ok {
+		return fmt.Errorf("spec.parameters.assign must be a string")
+	}
+	return nil
 }
