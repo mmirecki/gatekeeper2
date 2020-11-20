@@ -1,6 +1,10 @@
 package mutation
 
 import (
+	"encoding/json"
+	"fmt"
+	"reflect"
+
 	"github.com/google/go-cmp/cmp"
 	mutationsv1alpha1 "github.com/open-policy-agent/gatekeeper/apis/mutations/v1alpha1"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/path/parser"
@@ -129,4 +133,39 @@ func applyToToBindings(applyTos []mutationsv1alpha1.ApplyTo) []SchemaBinding {
 		res = append(res, binding)
 	}
 	return res
+}
+
+// IsValidAssign returns an error if the given assignmetadata object is not
+// semantically valid
+func IsValidAssign(assign *mutationsv1alpha1.Assign) error {
+	path, err := parser.Parse(assign.Spec.Location)
+	if err != nil {
+		return errors.Wrapf(err, "Invalid location format")
+	}
+
+	if hasMetadataRoot(path) {
+		return fmt.Errorf("Assign can't change metadata")
+	}
+	toAssign := make(map[string]interface{})
+	err = json.Unmarshal([]byte(assign.Spec.Parameters.Assign.Raw), &toAssign)
+	if err != nil {
+		return errors.Wrapf(err, "Invalid format for parameters.assign")
+	}
+
+	_, ok := toAssign["value"]
+	if !ok {
+		return fmt.Errorf("spec.parameters.assign must have a value field")
+	}
+	return nil
+}
+
+func hasMetadataRoot(path *parser.Path) bool {
+	if len(path.Nodes) == 0 {
+		return false
+	}
+
+	if reflect.DeepEqual(path.Nodes[0], &parser.Object{Reference: "metadata"}) {
+		return true
+	}
+	return false
 }
