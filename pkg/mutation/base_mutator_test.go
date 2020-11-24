@@ -83,7 +83,6 @@ func TestObjects(t *testing.T) {
 		pathEntries,
 		prepareTestPod(t),
 		testFunc,
-		false,
 		t,
 	)
 }
@@ -129,7 +128,54 @@ func TestObjectsAndLists(t *testing.T) {
 		pathEntries,
 		prepareTestPod(t),
 		testFunc,
-		false,
+		t,
+	)
+}
+
+func TestListsAsLastElement(t *testing.T) {
+	pathEntries := []parser.Node{
+		parser.Object{Reference: "spec"},
+		parser.Object{Reference: "containers"},
+		parser.List{KeyField: "name", KeyValue: toPtr(TestValue)},
+	}
+	testFunc := func(unstructured *unstructured.Unstructured) {
+		containers := unstructured.Object["spec"].(map[string]interface{})["containers"]
+		for _, container := range containers.([]interface{}) {
+			if container.(map[string]interface{})["name"] == TestValue {
+				return
+			}
+		}
+		t.Errorf("Failed to update pod")
+	}
+
+	testMutation(
+		pathEntries,
+		prepareTestPod(t),
+		testFunc,
+		t,
+	)
+}
+
+func TestListsAsLastElementAlreadyExists(t *testing.T) {
+	pathEntries := []parser.Node{
+		parser.Object{Reference: "spec"},
+		parser.Object{Reference: "containers"},
+		parser.List{KeyField: "name", KeyValue: toPtr("testname1")},
+	}
+	testFunc := func(unstructured *unstructured.Unstructured) {
+		containers := unstructured.Object["spec"].(map[string]interface{})["containers"]
+		for _, container := range containers.([]interface{}) {
+			if container.(map[string]interface{})["name"] == "testname1" {
+				return
+			}
+		}
+		t.Errorf("Expected value missing")
+	}
+
+	testMutation(
+		pathEntries,
+		prepareTestPod(t),
+		testFunc,
 		t,
 	)
 }
@@ -161,7 +207,6 @@ func TestGlobbedList(t *testing.T) {
 		pathEntries,
 		prepareTestPod(t),
 		testFunc,
-		false,
 		t,
 	)
 }
@@ -169,18 +214,44 @@ func TestGlobbedList(t *testing.T) {
 func TestNonExistingPathEntry(t *testing.T) {
 	pathEntries := []parser.Node{
 		parser.Object{Reference: "spec"},
-		parser.Object{Reference: "notExists"},
-		parser.List{KeyField: "name", Glob: true},
-		parser.Object{Reference: "ports"},
+		parser.Object{Reference: "element"},
+		parser.Object{Reference: "should"},
+		parser.Object{Reference: "be"},
+		parser.Object{Reference: "added"},
 	}
-
-	testFunc := func(unstructured *unstructured.Unstructured) {}
-
+	testFunc := func(unstructured *unstructured.Unstructured) {
+		element := unstructured.Object["spec"].(map[string]interface{})["element"].(map[string]interface{})["should"].(map[string]interface{})["be"]
+		if element.(map[string]interface{})["added"] != TestValue {
+			t.Errorf("Failed to update pod")
+		}
+	}
 	testMutation(
 		pathEntries,
 		prepareTestPod(t),
 		testFunc,
-		true,
+		t,
+	)
+}
+
+func TestNonExistingListPathEntry(t *testing.T) {
+	pathEntries := []parser.Node{
+		parser.Object{Reference: "spec"},
+		parser.Object{Reference: "element"},
+		parser.List{KeyField: "name", KeyValue: toPtr("value")},
+		parser.Object{Reference: "element2"},
+		parser.Object{Reference: "added"},
+	}
+	testFunc := func(unstructured *unstructured.Unstructured) {
+		element := unstructured.Object["spec"].(map[string]interface{})["element"]
+		element2 := element.([]interface{})[0].(map[string]interface{})["element2"].(map[string]interface{})
+		if element2["added"] != TestValue {
+			t.Errorf("Failed to update pod")
+		}
+	}
+	testMutation(
+		pathEntries,
+		prepareTestPod(t),
+		testFunc,
 		t,
 	)
 }
@@ -189,18 +260,12 @@ func testMutation(
 	nodes []parser.Node,
 	unstructured *unstructured.Unstructured,
 	testFunc func(*unstructured.Unstructured),
-	errExpected bool,
 	t *testing.T) {
 
-	mutator := AssignMetadataMutator{
-		Path:  parser.Path{Nodes: nodes},
-		Value: TestValue,
-	}
+	mutator := NewMutator(parser.Path{Nodes: nodes}, TestValue)
 	err := mutator.Mutate(unstructured)
-	if !errExpected && err != nil {
-		t.Error("Expected error was not raised")
-	} else if errExpected && err == nil {
-		t.Error("Unexpected error was raised")
+	if err != nil {
+		t.Error("Unexpected error", err)
 	} else {
 		testFunc(unstructured)
 	}
