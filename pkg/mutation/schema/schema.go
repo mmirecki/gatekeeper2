@@ -212,8 +212,8 @@ type node struct {
 func (n *node) backup() *node {
 	return &node{
 		referenceCount: n.referenceCount,
-		nodeType: n.nodeType,
-		keyField: n.keyField,
+		nodeType:       n.nodeType,
+		keyField:       n.keyField,
 	}
 }
 

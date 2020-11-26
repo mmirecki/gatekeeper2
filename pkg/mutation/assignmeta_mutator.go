@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	mutationsv1alpha1 "github.com/open-policy-agent/gatekeeper/apis/mutations/v1alpha1"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/path/parser"
+	"github.com/open-policy-agent/gatekeeper/pkg/mutation/types"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,13 +38,13 @@ var (
 //AssignMetadataMutator is a mutator built out of an
 // AssignMeta instance.
 type AssignMetadataMutator struct {
-	id             ID
+	id             types.ID
 	assignMetadata *mutationsv1alpha1.AssignMetadata
 	path           *parser.Path
 }
 
 // assignMetadataMutator implements mutator
-var _ Mutator = &AssignMetadataMutator{}
+var _ types.Mutator = &AssignMetadataMutator{}
 
 func (m *AssignMetadataMutator) Matches(obj runtime.Object, ns *corev1.Namespace) bool {
 	matches, err := Matches(m.assignMetadata.Spec.Match, obj, ns)
@@ -58,11 +59,11 @@ func (m *AssignMetadataMutator) Mutate(obj *unstructured.Unstructured) error {
 	// TODO implement
 	return nil
 }
-func (m *AssignMetadataMutator) ID() ID {
+func (m *AssignMetadataMutator) ID() types.ID {
 	return m.id
 }
 
-func (m *AssignMetadataMutator) HasDiff(mutator Mutator) bool {
+func (m *AssignMetadataMutator) HasDiff(mutator types.Mutator) bool {
 	toCheck, ok := mutator.(*AssignMetadataMutator)
 	if !ok { // different types, different
 		return true
@@ -79,7 +80,7 @@ func (m *AssignMetadataMutator) HasDiff(mutator Mutator) bool {
 	return false
 }
 
-func (m *AssignMetadataMutator) DeepCopy() Mutator {
+func (m *AssignMetadataMutator) DeepCopy() types.Mutator {
 	res := &AssignMetadataMutator{
 		id:             m.id,
 		assignMetadata: m.assignMetadata.DeepCopy(),
@@ -89,7 +90,7 @@ func (m *AssignMetadataMutator) DeepCopy() Mutator {
 
 // MutatorForAssignMetadata builds an AssignMetadataMutator from the given AssignMetadata object.
 func MutatorForAssignMetadata(assignMeta *mutationsv1alpha1.AssignMetadata) (*AssignMetadataMutator, error) {
-	id, err := MakeID(assignMeta)
+	id, err := types.MakeID(assignMeta)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to retrieve id for assignMetadata type")
 	}

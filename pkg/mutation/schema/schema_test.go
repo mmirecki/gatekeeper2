@@ -8,8 +8,8 @@ import (
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/path/parser"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/types"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -23,7 +23,7 @@ type mockMutator struct {
 	pathCache *parser.Path
 }
 
-func (m *mockMutator) Matches(obj metav1.Object, ns *corev1.Namespace) bool { return false }
+func (m *mockMutator) Matches(obj runtime.Object, ns *corev1.Namespace) bool { return false }
 
 func (m *mockMutator) Mutate(obj *unstructured.Unstructured) error { return nil }
 

@@ -4,12 +4,14 @@ import (
 	"fmt"
 
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/path/parser"
+	"github.com/open-policy-agent/gatekeeper/pkg/mutation/schema"
+	"github.com/open-policy-agent/gatekeeper/pkg/mutation/types"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-var _ MutatorWithSchema = &BaseMutator{}
+var _ schema.MutatorWithSchema = &BaseMutator{}
 
 func NewMutator(path parser.Path, value string) BaseMutator {
 	return BaseMutator{
@@ -137,11 +139,11 @@ func createMissingElement(m BaseMutator, current interface{}, previous interface
 	return next
 }
 
-func (m BaseMutator) ID() ID {
-	return ID{}
+func (m BaseMutator) ID() types.ID {
+	return types.ID{}
 }
 
-func (m BaseMutator) HasDiff(mutator Mutator) bool {
+func (m BaseMutator) HasDiff(mutator types.Mutator) bool {
 	return false
 }
 
@@ -149,14 +151,14 @@ func (m BaseMutator) Path() *parser.Path {
 	return &m.path
 }
 
-func (m BaseMutator) SchemaBindings() []SchemaBinding {
+func (m BaseMutator) SchemaBindings() []schema.Binding {
 	return nil
 }
 
-func (m BaseMutator) DeepCopy() Mutator {
+func (m BaseMutator) DeepCopy() types.Mutator {
 	return nil
 }
 
-func (m BaseMutator) Matches(obj metav1.Object, ns *corev1.Namespace) bool {
+func (m BaseMutator) Matches(obj runtime.Object, ns *corev1.Namespace) bool {
 	return false
 }
