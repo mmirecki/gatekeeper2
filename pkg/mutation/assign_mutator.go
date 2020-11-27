@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // AssignMutator is a mutator object built out of a
@@ -37,6 +38,10 @@ func (m *AssignMutator) ID() ID {
 
 func (m *AssignMutator) SchemaBindings() []SchemaBinding {
 	return m.bindings
+}
+
+func (m *AssignMutator) Value() runtime.RawExtension {
+	return m.assign.Spec.Parameters.Assign
 }
 
 func (m *AssignMutator) HasDiff(mutator Mutator) bool {
