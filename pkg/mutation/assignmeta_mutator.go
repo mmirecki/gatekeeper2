@@ -82,6 +82,10 @@ func (m *AssignMetadataMutator) DeepCopy() Mutator {
 	return res
 }
 
+func (m *AssignMetadataMutator) Value() (interface{}, error) {
+	return unmarshalValue(m.assignMetadata.Spec.Parameters.Assign.Raw)
+}
+
 // MutatorForAssignMetadata builds an AssignMetadataMutator from the given AssignMetadata object.
 func MutatorForAssignMetadata(assignMeta *mutationsv1alpha1.AssignMetadata) (*AssignMetadataMutator, error) {
 	id, err := MakeID(assignMeta)
