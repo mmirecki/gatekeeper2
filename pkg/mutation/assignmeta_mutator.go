@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var (
@@ -42,7 +43,7 @@ type AssignMetadataMutator struct {
 }
 
 // assignMetadataMutator implements mutator
-var _ Mutator = &AssignMetadataMutator{}
+var _ MutatorWithSchema = &AssignMetadataMutator{}
 
 func (m *AssignMetadataMutator) Matches(obj metav1.Object, ns *corev1.Namespace) bool {
 	// TODO implement using matches function
@@ -80,6 +81,18 @@ func (m *AssignMetadataMutator) DeepCopy() Mutator {
 		assignMetadata: m.assignMetadata.DeepCopy(),
 	}
 	return res
+}
+
+func (m *AssignMetadataMutator) Path() *parser.Path {
+	return m.path
+}
+
+func (m *AssignMetadataMutator) SchemaBindings() []SchemaBinding {
+	return nil
+}
+
+func (m *AssignMetadataMutator) Value() runtime.RawExtension {
+	return m.assignMetadata.Spec.Parameters.Assign
 }
 
 // MutatorForAssignMetadata builds an AssignMetadataMutator from the given AssignMetadata object.

@@ -47,6 +47,7 @@ type MutatorWithSchema interface {
 	Mutator
 	SchemaBindings() []SchemaBinding
 	Path() *parser.Path
+	Value() runtime.RawExtension
 }
 
 // MakeID builds an ID object for the given object
