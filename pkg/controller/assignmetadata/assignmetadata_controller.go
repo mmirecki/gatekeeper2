@@ -123,14 +123,17 @@ func (r *AssignMetadataReconciler) Reconcile(request reconcile.Request) (reconci
 	mutator, err := mutation.MutatorForAssignMetadata(assignMetadata)
 	if err != nil {
 		log.Error(err, "Creating mutator for resource failed", "resource", request.NamespacedName)
+		return ctrl.Result{}, err
 	}
 	if !deleted {
 		if err := r.system.Upsert(mutator); err != nil {
 			log.Error(err, "Insert failed", "resource", request.NamespacedName)
+			return ctrl.Result{}, err
 		}
 	} else {
 		if err := r.system.Remove(mutator); err != nil {
 			log.Error(err, "Remove failed", "resource", request.NamespacedName)
+			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil
