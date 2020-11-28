@@ -140,6 +140,7 @@ func (r *AssignMetadataReconciler) Reconcile(request reconcile.Request) (reconci
 	if err != nil {
 		log.Error(err, "Creating mutator for resource failed", "resource", request.NamespacedName)
 		tracker.CancelExpect(assignMetadata)
+		return ctrl.Result{}, nil // Do not reque on resource compilation errors
 	}
 
 	if !deleted {
