@@ -5,10 +5,7 @@ import (
 
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/path/parser"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var log = logf.Log.WithName("mutation")
 
 func Mutate(mutator Mutator, obj *unstructured.Unstructured) error {
 	return mutate(mutator, obj.Object, nil, 0)
@@ -67,7 +64,6 @@ func addValue(m Mutator, current interface{}, previous interface{}, depth int) e
 	pathEntry := m.Path().Nodes[depth]
 	switch t := pathEntry.Type(); t {
 	case parser.ObjectNode:
-
 		switch m.(type) {
 		case *AssignMetadataMutator:
 			if elementValue, ok := current.(map[string]interface{})[pathEntry.(*parser.Object).Reference]; ok {

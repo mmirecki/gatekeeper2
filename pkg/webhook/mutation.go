@@ -26,7 +26,10 @@ import (
 	"github.com/open-policy-agent/gatekeeper/pkg/util"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -57,7 +60,7 @@ func init() {
 // +kubebuilder:rbac:groups=*,resources=*,verbs=get;list;watch;update
 
 // AddMutatingWebhook registers the mutating webhook server with the manager
-func AddMutatingWebhook(mgr manager.Manager, client *opa.Client, processExcluder *process.Excluder, mutationCache *mutation.System) error {
+func AddMutatingWebhook(mgr manager.Manager, client *opa.Client, processExcluder *process.Excluder, mutationSystem *mutation.System) error {
 	if !*mutation.MutationEnabled {
 		return nil
 	}
@@ -83,6 +86,7 @@ func AddMutatingWebhook(mgr manager.Manager, client *opa.Client, processExcluder
 				eventRecorder:   recorder,
 				gkNamespace:     util.GetNamespace(),
 			},
+			mutationSystem: mutationSystem,
 		},
 	}
 
@@ -100,11 +104,13 @@ var _ admission.Handler = &mutationHandler{}
 
 type mutationHandler struct {
 	webhookHandler
+	mutationSystem *mutation.System
 }
 
 // Handle the mutation request
 func (h *mutationHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	log := log.WithValues("hookType", "mutation")
+	log.Info("### MUTATION Webhook HANDLE", "req name", req.Name)
 	var timeStart = time.Now()
 
 	if isGkServiceAccount(req.AdmissionRequest.UserInfo) {
@@ -148,8 +154,11 @@ func (h *mutationHandler) Handle(ctx context.Context, req admission.Request) adm
 		requestResponse = mutationSkipResponse
 		return admission.ValidationResponse(true, "Namespace is set to be ignored by Gatekeeper config")
 	}
+	log.Info("### MUTATION Webhook mutateRequest START")
 
 	resp, err := h.mutateRequest(ctx, req)
+	log.Info("### MUTATION Webhook mutateRequest AFTER", "resp", resp)
+
 	if err != nil {
 		requestResponse = mutationErrorResponse
 		return admission.Errored(int32(http.StatusInternalServerError), err)
@@ -160,9 +169,50 @@ func (h *mutationHandler) Handle(ctx context.Context, req admission.Request) adm
 
 // traceSwitch returns true if a request should be traced
 func (h *mutationHandler) mutateRequest(ctx context.Context, req admission.Request) (admission.Response, error) {
-	// TODO: place mutation logic here
-	mutatedObject := req.Object
-	resp := admission.PatchResponseFromRaw(req.Object.Raw, mutatedObject.Raw)
+	okResp := admission.Response{
+		AdmissionResponse: admissionv1beta1.AdmissionResponse{
+			Allowed: true,
+			Result: &metav1.Status{
+				Code: int32(http.StatusOK),
+			},
+		},
+	}
+
+	ns := &corev1.Namespace{}
+
+	if err := h.client.Get(ctx, types.NamespacedName{Name: req.AdmissionRequest.Namespace}, ns); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			log.Info("Namespace not found", "name", req.AdmissionRequest.Namespace)
+			return okResp, nil
+		}
+		// bypass cached client and ask api-server directly
+		err = h.reader.Get(ctx, types.NamespacedName{Name: req.AdmissionRequest.Namespace}, ns)
+		if err != nil {
+			log.Info("Namespace not found", "name", req.AdmissionRequest.Namespace)
+			return okResp, nil
+		}
+	}
+
+	obj := unstructured.Unstructured{}
+	err := obj.UnmarshalJSON(req.Object.Raw)
+	if err != nil {
+		log.Info("Failed to unmarshal", "object", string(req.Object.Raw))
+		return okResp, nil
+	}
+
+	err = h.mutationSystem.Mutate(&obj, ns)
+	if err != nil {
+		return okResp, nil
+	}
+
+	newJSON, err := obj.MarshalJSON()
+	log.Info("Mutated", "object", obj, "json", string(newJSON))
+	if err != nil {
+		log.Info("Failed to marshal", "object", obj)
+		return okResp, nil
+	}
+	resp := admission.PatchResponseFromRaw(req.Object.Raw, newJSON)
+	log.Info("Response", "resp", resp)
 	return resp, nil
 }
 
