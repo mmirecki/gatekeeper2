@@ -8,7 +8,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.1.0
 	github.com/go-logr/zapr v0.1.0
-	github.com/google/go-cmp v0.5.0
+	github.com/google/go-cmp v0.5.2
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/open-policy-agent/cert-controller v0.0.0-20201118195149-7df0cfffc634
@@ -21,10 +21,11 @@ require (
 	golang.org/x/net v0.0.0-20201016165138-7b1cca2348c0
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	gopkg.in/yaml.v2 v2.3.0
-	k8s.io/api v0.18.6
+	k8s.io/api v0.18.10
 	k8s.io/apiextensions-apiserver v0.18.6
-	k8s.io/apimachinery v0.18.6
-	k8s.io/client-go v0.18.6
+	k8s.io/apimachinery v0.18.10
+	k8s.io/client-go v0.18.10
 	sigs.k8s.io/controller-runtime v0.6.3
+	sigs.k8s.io/kustomize/kustomize/v3 v3.8.7 // indirect
 	sigs.k8s.io/yaml v1.2.0
 )

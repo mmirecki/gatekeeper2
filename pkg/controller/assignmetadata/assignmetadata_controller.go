@@ -139,6 +139,7 @@ func (r *AssignMetadataReconciler) Reconcile(request reconcile.Request) (reconci
 	if err != nil {
 		log.Error(err, "Creating mutator for resource failed", "resource", request.NamespacedName)
 	}
+	log.Info("Created Meta", "path", mutator.Path())
 
 	tracker := r.tracker.For(gvkAssignMetadata)
 

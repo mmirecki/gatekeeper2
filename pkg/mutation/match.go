@@ -22,6 +22,7 @@ func Matches(match mutationsv1.Match, obj runtime.Object, ns *corev1.Namespace) 
 	}
 
 	foundMatch := false
+	log.Info("Checking match to", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "group", obj.GetObjectKind().GroupVersionKind().Group)
 
 	for _, kk := range match.Kinds {
 		kindMatches := false
@@ -33,11 +34,17 @@ func Matches(match mutationsv1.Match, obj runtime.Object, ns *corev1.Namespace) 
 				break
 			}
 		}
+		if len(kk.Kinds) == 0 {
+			kindMatches = true
+		}
 		for _, g := range kk.APIGroups {
 			if g == "*" || g == obj.GetObjectKind().GroupVersionKind().Group {
 				groupMatches = true
 				break
 			}
+		}
+		if len(kk.APIGroups) == 0 {
+			groupMatches = true
 		}
 		if kindMatches && groupMatches {
 			foundMatch = true
@@ -48,6 +55,7 @@ func Matches(match mutationsv1.Match, obj runtime.Object, ns *corev1.Namespace) 
 	}
 
 	if !foundMatch {
+		log.Info("Not found match")
 		return false, nil
 	}
 

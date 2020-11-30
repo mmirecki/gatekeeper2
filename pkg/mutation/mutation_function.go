@@ -1,9 +1,11 @@
 package mutation
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/path/parser"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -12,6 +14,7 @@ func Mutate(mutator MutatorWithSchema, obj *unstructured.Unstructured) error {
 }
 
 func mutate(m MutatorWithSchema, current interface{}, previous interface{}, depth int) error {
+	log.Info("mutate", "path", m.Path(), "depth", depth)
 	if len(m.Path().Nodes)-1 == depth {
 		return addValue(m, current, previous, depth)
 	}
@@ -61,15 +64,22 @@ func mutate(m MutatorWithSchema, current interface{}, previous interface{}, dept
 
 func addValue(m MutatorWithSchema, current interface{}, previous interface{}, depth int) error {
 	// TODO: it should be considered if the value set can be not just a simple string, but json which could be unmarshalled into an object
+	log.Info("Addvalue")
 	pathEntry := m.Path().Nodes[depth]
 	switch t := pathEntry.Type(); t {
 	case parser.ObjectNode:
 		if elementValue, ok := current.(map[string]interface{})[pathEntry.(*parser.Object).Reference]; ok {
-			if elementValue != string(m.Value().Raw) {
-				return fmt.Errorf("A value can not me modified by mutation")
-			}
+			log.Info("Value already there", "field", pathEntry.(*parser.Object).Reference, "value", elementValue)
+			return nil
 		} else {
-			current.(map[string]interface{})[pathEntry.(*parser.Object).Reference] = string(m.Value().Raw)
+			assign := make(map[string]interface{})
+			err := json.Unmarshal(m.Value().Raw, &assign)
+			if err != nil {
+				return errors.Wrap(err, "Failed to unmarshal value")
+			}
+
+			log.Info("Setting", "field", pathEntry.(*parser.Object).Reference, "value", assign["value"], "assign", assign)
+			current.(map[string]interface{})[pathEntry.(*parser.Object).Reference] = assign["value"]
 		}
 	case parser.ListNode:
 		return addListElementWithValue(m, current, previous, depth)

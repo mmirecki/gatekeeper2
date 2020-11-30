@@ -49,6 +49,7 @@ func (s *System) Upsert(m Mutator) error {
 		}
 	}
 
+	log.Info("Adding mutator to scheme", "mutator", m.ID())
 	s.mutatorsMap[toAdd.ID()] = toAdd
 
 	i := sort.Search(len(s.orderedMutators), func(i int) bool {
@@ -74,6 +75,7 @@ func (s *System) Upsert(m Mutator) error {
 
 // Mutate applies the mutation in place to the given object
 func (s *System) Mutate(obj *unstructured.Unstructured, ns *corev1.Namespace) error {
+	log.Info("Mutating")
 	s.RLock()
 	defer s.RUnlock()
 
@@ -82,6 +84,7 @@ func (s *System) Mutate(obj *unstructured.Unstructured, ns *corev1.Namespace) er
 	for i := 0; i < maxIterations; i++ {
 		old := obj.DeepCopy()
 		for _, m := range s.orderedMutators {
+			log.Info("Checking mutator", "ID", m.ID())
 			if m.Matches(obj, ns) {
 				err := m.Mutate(obj)
 				if err != nil {
