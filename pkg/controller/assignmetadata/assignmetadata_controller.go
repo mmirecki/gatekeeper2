@@ -134,20 +134,20 @@ func (r *AssignMetadataReconciler) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 	deleted = deleted || !assignMetadata.GetDeletionTimestamp().IsZero()
+	tracker := r.tracker.For(gvkAssignMetadata)
 
 	mutator, err := mutation.MutatorForAssignMetadata(assignMetadata)
 	if err != nil {
 		log.Error(err, "Creating mutator for resource failed", "resource", request.NamespacedName)
+		tracker.CancelExpect(assignMetadata)
+		return ctrl.Result{}, nil // Do not reque on resource compilation errors
 	}
-	log.Info("Created Meta", "path", mutator.Path())
-
-	tracker := r.tracker.For(gvkAssignMetadata)
 
 	if !deleted {
 		if err := r.system.Upsert(mutator); err != nil {
 			log.Error(err, "Insert failed", "resource", request.NamespacedName)
+
 		}
-		tracker.Observe(assignMetadata)
 	} else {
 		if err := r.system.Remove(mutator); err != nil {
 			log.Error(err, "Remove failed", "resource", request.NamespacedName)

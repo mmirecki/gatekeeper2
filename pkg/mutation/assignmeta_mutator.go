@@ -55,7 +55,6 @@ func (m *AssignMetadataMutator) Matches(obj runtime.Object, ns *corev1.Namespace
 }
 
 func (m *AssignMetadataMutator) Mutate(obj *unstructured.Unstructured) error {
-	log.Info("Mutate", "path", m.Path())
 	return Mutate(m, obj)
 }
 func (m *AssignMetadataMutator) ID() ID {

@@ -14,7 +14,6 @@ func Mutate(mutator MutatorWithSchema, obj *unstructured.Unstructured) error {
 }
 
 func mutate(m MutatorWithSchema, current interface{}, previous interface{}, depth int) error {
-	log.Info("mutate", "path", m.Path(), "depth", depth)
 	if len(m.Path().Nodes)-1 == depth {
 		return addValue(m, current, previous, depth)
 	}
@@ -64,7 +63,6 @@ func mutate(m MutatorWithSchema, current interface{}, previous interface{}, dept
 
 func addValue(m MutatorWithSchema, current interface{}, previous interface{}, depth int) error {
 	// TODO: it should be considered if the value set can be not just a simple string, but json which could be unmarshalled into an object
-	log.Info("Addvalue")
 	pathEntry := m.Path().Nodes[depth]
 	switch t := pathEntry.Type(); t {
 	case parser.ObjectNode:

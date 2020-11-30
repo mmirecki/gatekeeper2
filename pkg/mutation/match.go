@@ -22,7 +22,6 @@ func Matches(match mutationsv1.Match, obj runtime.Object, ns *corev1.Namespace) 
 	}
 
 	foundMatch := false
-	log.Info("Checking match to", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "group", obj.GetObjectKind().GroupVersionKind().Group)
 
 	for _, kk := range match.Kinds {
 		kindMatches := false
@@ -55,7 +54,6 @@ func Matches(match mutationsv1.Match, obj runtime.Object, ns *corev1.Namespace) 
 	}
 
 	if !foundMatch {
-		log.Info("Not found match")
 		return false, nil
 	}
 
