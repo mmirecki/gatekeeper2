@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/open-policy-agent/gatekeeper/pkg/logging"
@@ -107,12 +108,17 @@ func (s *System) Mutate(obj *unstructured.Unstructured, ns *corev1.Namespace) (b
 			}
 			if cmp.Equal(original, obj) {
 				if *MutationLoggingEnabled {
-					logAppliedMutations("Oscillating mutation.", original, allAppliedMutations)
+					logAppliedMutations("Oscillating mutation.", original, allAppliedMutations, nil)
 				}
 				return false, fmt.Errorf("oscillating mutation for %s %s %s %s", obj.GroupVersionKind().Group, obj.GroupVersionKind().Kind, obj.GetNamespace(), obj.GetName())
 			}
+			mutationTimestamp := time.Now()
 			if *MutationLoggingEnabled {
-				logAppliedMutations("Mutation applied", original, allAppliedMutations)
+				logAppliedMutations("Mutation applied", original, allAppliedMutations, &mutationTimestamp)
+			}
+
+			if *MutationAnnotationsEnabled {
+				mutationAnnotations(obj, allAppliedMutations, mutationTimestamp)
 			}
 			return true, nil
 		}
@@ -121,12 +127,38 @@ func (s *System) Mutate(obj *unstructured.Unstructured, ns *corev1.Namespace) (b
 		}
 	}
 	if *MutationLoggingEnabled {
-		logAppliedMutations("Mutation not converging", original, allAppliedMutations)
+		logAppliedMutations("Mutation not converging", original, allAppliedMutations, nil)
 	}
 	return false, fmt.Errorf("mutation not converging for %s %s %s %s", obj.GroupVersionKind().Group, obj.GroupVersionKind().Kind, obj.GetNamespace(), obj.GetName())
 }
 
-func logAppliedMutations(message string, obj *unstructured.Unstructured, allAppliedMutations [][]types.Mutator) {
+func mutationAnnotations(obj *unstructured.Unstructured, allAppliedMutations [][]types.Mutator, timestamp time.Time) error {
+	mutatorStringSet := make(map[string]bool)
+	for _, mutationsForIteration := range allAppliedMutations {
+		for _, mutator := range mutationsForIteration {
+			mutatorStringSet[mutator.String()] = false
+		}
+	}
+	mutatorStrings := []string{}
+	for mutatorString := range mutatorStringSet {
+		mutatorStrings = append(mutatorStrings, mutatorString)
+	}
+
+	metadata, ok := obj.Object["metadata"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("Incorrect metadata type")
+	}
+	annotations, ok := metadata["annotations"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("Incorrect metadata type")
+	}
+	annotations["gatekeeper.sh/mutations"] = strings.Join(mutatorStrings, ", ")
+	annotations["gatekeeper.sh/mutated"] = "true"
+	annotations["gatekeeper.sh/mutation-timestamp"] = timestamp.String()
+	return nil
+}
+
+func logAppliedMutations(message string, obj *unstructured.Unstructured, allAppliedMutations [][]types.Mutator, timestamp *time.Time) {
 	iterations := []interface{}{}
 	for i, appliedMutations := range allAppliedMutations {
 		if len(appliedMutations) == 0 {
@@ -148,6 +180,9 @@ func logAppliedMutations(message string, obj *unstructured.Unstructured, allAppl
 		logDetails = append(logDetails, logging.ResourceAPIVersion, obj.GroupVersionKind().Version)
 		logDetails = append(logDetails, logging.ResourceNamespace, obj.GetNamespace())
 		logDetails = append(logDetails, logging.ResourceName, obj.GetName())
+		if timestamp != nil {
+			logDetails = append(logDetails, "timestamp", *timestamp)
+		}
 		logDetails = append(logDetails, iterations...)
 		log.Info(message, logDetails...)
 	}

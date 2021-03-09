@@ -21,13 +21,15 @@ import (
 
 // MutationEnabled indicates if the mutation feature is enabled
 var (
-	MutationEnabled        *bool
-	MutationLoggingEnabled *bool
-	log                    = logf.Log.WithName("mutation").WithValues(logging.Process, "mutation")
+	MutationEnabled            *bool
+	MutationLoggingEnabled     *bool
+	MutationAnnotationsEnabled *bool
+	log                        = logf.Log.WithName("mutation").WithValues(logging.Process, "mutation")
 )
 
 func init() {
 	MutationEnabled = flag.Bool("enable-mutation", false, "(alpha) Enable the mutation feature")
 	MutationLoggingEnabled = flag.Bool("log-mutation-events", false, "(alpha) Enable detailed logging of mutation events")
+	MutationAnnotationsEnabled = flag.Bool("mutation-annotations", false, "(alpha) Enable mutation annotations")
 
 }
